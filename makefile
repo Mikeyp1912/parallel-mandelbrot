@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -Iinclude
+CFLAGS = -Wall -Wextra -O2 -Iinclude -pthread
 TARGET = mandelbrot
 
 SRC = src/main.c \
@@ -12,7 +12,7 @@ OBJ = $(SRC:.c=.o)
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(OBJ) -o $(TARGET) -lm
+	$(CC) $(OBJ) -o $(TARGET) -lm -pthread
 
 %.o: %.c include/mandelbrot.h
 	$(CC) $(CFLAGS) -c $< -o $@

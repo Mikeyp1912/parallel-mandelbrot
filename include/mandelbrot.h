@@ -33,11 +33,21 @@ typedef struct {
 	int width;
 	int height;
 	int max_iter;
+
 	double x_min;
 	double x_max;
 	double y_min;
 	double y_max;
+
+    double center_x;
+    double center_y;
+    double zoom;
+
     double gamma;
+    int no_output;
+
+    int threads;
+    int chunk_size;
 } MandelbrotConfig;
 /* -------------------------------- Image Data -------------------------------- */
 
@@ -132,6 +142,13 @@ MandelbrotPointResult mandelbrot_iterations(double cr, double ci, int max_iter);
  * using the serial implementation.
  */
 void mandelbrot_compute_serial(const MandelbrotConfig *cfg, MandelbrotImage *img);
+
+/*
+ *
+ */
+void mandelbrot_compute_pthreads(const MandelbrotConfig *cfg, MandelbrotImage *img);
+
+
 
 /* --------------------------- Colouring Functions ------------------------- */
 
