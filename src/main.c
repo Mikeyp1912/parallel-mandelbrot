@@ -2,11 +2,16 @@
 #include "../include/mandelbrot.h"
 #include <stdio.h>
 
-int main(void) {
+int main(int argc, char *argv[]) {
 	MandelbrotConfig cfg;
 	MandelbrotImage img;
 
 	mandelbrot_set_defaults(&cfg);
+
+    if (mandelbrot_parse_args(&cfg, argc, argv) != 0) {
+        mandelbrot_print_usage(argv[0]);
+        return 1;
+    }
 
 	if (mandelbrot_image_init(&img, &cfg) != 0) {
 		printf("Failed to allocate memory\n");
@@ -16,7 +21,7 @@ int main(void) {
 	mandelbrot_compute_serial(&cfg, &img);
 	mandelbrot_apply_histogram_colouring(&cfg, &img);
 
-	if (mandelbrot_write_data("mandel.dat", &cfg, &img) != 0) {
+	if (mandelbrot_write_data("plot/mandel.dat", &cfg, &img) != 0) {
 		printf("Failed to write output file\n");
 		mandelbrot_image_free(&img);
 		return 1;

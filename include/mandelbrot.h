@@ -37,6 +37,7 @@ typedef struct {
 	double x_max;
 	double y_min;
 	double y_max;
+    double gamma;
 } MandelbrotConfig;
 /* -------------------------------- Image Data -------------------------------- */
 
@@ -101,6 +102,11 @@ int mandelbrot_image_init(MandelbrotImage *img, const MandelbrotConfig *cfg);
  */
 void mandelbrot_image_free(MandelbrotImage *img);
 
+typedef struct {
+    int iterations;
+    double smooth_value;
+} MandelbrotPointResult;
+
 /* -------------------------- Computation Functions ------------------------ */
 
 /*
@@ -119,7 +125,7 @@ void mandelbrot_image_free(MandelbrotImage *img);
  *     The number of iterations before escape, or max_iter if the point
  *     does not escape within the limit.
  */
-int mandelbrot_iterations(double cr, double ci, int max_iter);
+MandelbrotPointResult mandelbrot_iterations(double cr, double ci, int max_iter);
 
 /*
  * Computes the Mandelbrot iteration count for every pixel in the image
