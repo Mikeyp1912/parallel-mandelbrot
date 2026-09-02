@@ -1,4 +1,7 @@
-set terminal pngcairo size 1000,1000
+if (!exists("WIDTH")) WIDTH = 1000
+if (!exists("HEIGHT")) HEIGHT = 1000
+
+set terminal pngcairo size WIDTH,HEIGHT
 set output 'plot/mandel.png'
 
 unset key

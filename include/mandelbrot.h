@@ -146,7 +146,7 @@ void mandelbrot_compute_serial(const MandelbrotConfig *cfg, MandelbrotImage *img
 /*
  *
  */
-void mandelbrot_compute_pthreads(const MandelbrotConfig *cfg, MandelbrotImage *img);
+int mandelbrot_compute_pthreads(const MandelbrotConfig *cfg, MandelbrotImage *img);
 
 
 
