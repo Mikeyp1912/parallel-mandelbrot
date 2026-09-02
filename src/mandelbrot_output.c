@@ -1,5 +1,6 @@
 // mandelbrot_output.c
 #include "../include/mandelbrot.h"
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <png.h>
@@ -166,8 +167,36 @@ int mandelbrot_write_png(const char *filename,
                 (size_t)y * (size_t)cfg->width +
                 (size_t)x;
 
-            double value = img->pixels[index];
+            int iter = img->iterations[index];
 
+            double value;
+
+            if (iter >= cfg->max_iter) {
+                value = 0.0;
+            }
+            else {
+                double smooth = img->smooth_values[index];
+
+                int lower = (int)smooth;
+                double fraction = smooth - (double)lower;
+
+                if (lower < 0) {
+                    lower = 0;
+                    fraction = 0.0;
+                }
+
+                if (lower >= cfg->max_iter - 1) {
+                    value = img->cdf[cfg->max_iter - 1];
+                }
+                else {
+                    double c1 = img->cdf[lower];
+                    double c2 = img->cdf[lower + 1];
+
+                    value = c1 + fraction * (c2 - c1);
+                }
+
+                value = pow(value, cfg->gamma);
+            }
             uint8_t r;
             uint8_t g;
             uint8_t b;

@@ -75,7 +75,7 @@ typedef struct {
 	int *iterations;
 	int *histogram;
     double *smooth_values;
-	double *pixels;
+    double *cdf;
 } MandelbrotImage;
 
 /* config usage helper */
@@ -153,12 +153,8 @@ int mandelbrot_compute_pthreads(const MandelbrotConfig *cfg, MandelbrotImage *im
 
 /* --------------------------- Colouring Functions ------------------------- */
 
-/*
- * Applies histogram-based colouring using the iteration data and stores
- * the final pixel values in img->pixels.
- */
-void mandelbrot_apply_histogram_colouring(const MandelbrotConfig *cfg,
-                                          MandelbrotImage *img);
+int mandelbrot_build_colour_cdf(const MandelbrotConfig *cfg,
+                                MandelbrotImage *img);
 
 /* ----------------------------- Output Functions -------------------------- */
 

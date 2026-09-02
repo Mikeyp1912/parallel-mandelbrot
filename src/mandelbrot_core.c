@@ -514,7 +514,7 @@ int mandelbrot_image_init(MandelbrotImage *img,
     img->iterations = NULL;
     img->histogram = NULL;
     img->smooth_values = NULL;
-    img->pixels = NULL;
+    img->cdf = NULL;
 
     img->iterations =
         malloc(sizeof(int) * total_pixels);
@@ -525,13 +525,12 @@ int mandelbrot_image_init(MandelbrotImage *img,
     img->smooth_values =
         malloc(sizeof(double) * total_pixels);
 
-    img->pixels =
-        malloc(sizeof(double) * total_pixels);
+    img->cdf = malloc(sizeof(double) * (size_t)cfg->max_iter);
 
     if (!img->iterations ||
         !img->histogram ||
         !img->smooth_values ||
-        !img->pixels) {
+        !img->cdf) {
 
         fprintf(stderr,
                 "Error: failed to allocate Mandelbrot image buffers\n");
@@ -539,7 +538,6 @@ int mandelbrot_image_init(MandelbrotImage *img,
         mandelbrot_image_free(img);
         return 1;
     }
-
     return 0;
 }
 
@@ -548,12 +546,12 @@ void mandelbrot_image_free(MandelbrotImage *img) {
 	free(img->iterations);
 	free(img->histogram);
     free(img->smooth_values);
-	free(img->pixels);
+    free(img->cdf);
 
 	img->iterations = NULL;
 	img->histogram = NULL;
     img->smooth_values = NULL;
-	img->pixels = NULL;
+    img->cdf = NULL;
 }
 
 
