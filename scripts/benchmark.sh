@@ -2,7 +2,7 @@
 
 set -e
 
-OUTPUT="benchmark_results.csv"
+OUTPUT="results/benchmark_results.csv"
 
 THREADS=(2 4 8 16)
 CHUNKS=(1 2 4 8 16 32)

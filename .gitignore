@@ -2,9 +2,9 @@
 *.o
 mandelbrot
 
-# Generated render data
-mandel.dat
-*.png
+# Generated Mandelbrot output
+plot/*.dat
+plot/*.png
 
 # IDE files
 .vs/
