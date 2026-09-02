@@ -40,6 +40,7 @@ void mandelbrot_set_defaults(MandelbrotConfig *cfg) {
 
     cfg->gamma = 4.0;
     cfg->no_output = 0;
+    cfg->output_file = "plot/mandel.png";
 
     cfg->threads = 1;
     cfg->chunk_size = 1;
@@ -55,6 +56,7 @@ void mandelbrot_print_usage(const char *prog_name) {
     printf("  --iterations <count>  Maximum iterations\n");
     printf("  --gamma <value>       Colour gamma correction\n");
     printf("  --no-output           Skip colouring and output file generation\n");
+    printf("  --output <file>       PNG output filename\n");
     printf("\nManual Bounds Options:\n");
     printf("  --xmin <value>        Minimum real coordinate\n");
     printf("  --xmax <value>        Maximum real coordinate\n");
@@ -360,6 +362,15 @@ int mandelbrot_parse_args(MandelbrotConfig *cfg, int argc, char *argv[]) {
                         preset);
                 error_count++;
             }
+        }
+        else if (strcmp(argv[i], "--output") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Error: missing value for --output\n");
+                error_count++;
+                continue;
+            }
+
+            cfg->output_file = argv[++i];
         }
         else {
             fprintf(stderr, "Error: unknown option '%s'\n", argv[i]);

@@ -48,9 +48,9 @@ int main(int argc, char *argv[]) {
 	if (!cfg.no_output) {
         mandelbrot_apply_histogram_colouring(&cfg, &img);
 
-        if (mandelbrot_write_png("plot/mandel.png",
-                                 &cfg,
-                                 &img) != 0) {
+        if (mandelbrot_write_png(cfg.output_file,
+                         &cfg,
+                         &img) != 0) {
             fprintf(stderr, "Failed to write PNG output\n");
             mandelbrot_image_free(&img);
             return 1;
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
         printf("Compute complete (output disabled)\n");
     }
     else {
-        printf("Render complete: plot/mandel.png\n");
+        printf("Render complete: %s\n", cfg.output_file);
     }
     printf("Resolution: %dx%d\n", cfg.width, cfg.height);
     printf("Iterations: %d\n", cfg.max_iter);

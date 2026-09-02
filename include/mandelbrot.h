@@ -45,6 +45,7 @@ typedef struct {
 
     double gamma;
     int no_output;
+    const char *output_file;
 
     int threads;
     int chunk_size;
@@ -160,20 +161,6 @@ void mandelbrot_apply_histogram_colouring(const MandelbrotConfig *cfg,
                                           MandelbrotImage *img);
 
 /* ----------------------------- Output Functions -------------------------- */
-
-/*
- * Writes the rendered Mandelbrot data to a file.
- *
- * filename:
- *     Output file path.
- *
- * Returns:
- *     0 on success
- *     non-zero on write failure
- */
-int mandelbrot_write_data(const char *filename,
-                          const MandelbrotConfig *cfg,
-                          const MandelbrotImage *img);
 
 int mandelbrot_write_png(const char *filename,
                          const MandelbrotConfig *cfg,
