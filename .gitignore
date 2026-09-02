@@ -1,0 +1,14 @@
+# Build files
+*.o
+mandelbrot
+
+# Generated render data
+mandel.dat
+*.png
+
+# IDE files
+.vs/
+.vscode/
+
+# Misc
+*.log
