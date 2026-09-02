@@ -10,7 +10,9 @@ int main(int argc, char *argv[]) {
 	mandelbrot_set_defaults(&cfg);
 
     if (mandelbrot_parse_args(&cfg, argc, argv) != 0) {
-        mandelbrot_print_usage(argv[0]);
+        fprintf(stderr,
+                "\nTry '%s --help' or '%s -h' for usage information.\n",
+                argv[0], argv[0]);
         return 1;
     }
 
@@ -28,7 +30,11 @@ int main(int argc, char *argv[]) {
         mandelbrot_compute_serial(&cfg, &img);
     }
     else {
-        mandelbrot_compute_pthreads(&cfg, &img);
+        if (mandelbrot_compute_pthreads(&cfg, &img) != 0) {
+            fprintf(stderr, "Error: parallel Mandelbrot computation failed\n");
+            mandelbrot_image_free(&img);
+            return 1;
+        }
     }
 
     clock_gettime(CLOCK_MONOTONIC, &end);
