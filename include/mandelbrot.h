@@ -175,4 +175,8 @@ int mandelbrot_write_data(const char *filename,
                           const MandelbrotConfig *cfg,
                           const MandelbrotImage *img);
 
+int mandelbrot_write_png(const char *filename,
+                         const MandelbrotConfig *cfg,
+                         const MandelbrotImage *img);
+
 #endif
