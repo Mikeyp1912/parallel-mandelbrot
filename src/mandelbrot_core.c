@@ -44,6 +44,8 @@ void mandelbrot_set_defaults(MandelbrotConfig *cfg) {
 
     cfg->threads = 1;
     cfg->chunk_size = 1;
+
+    cfg->backend = MANDELBROT_BACKEND_SERIAL;
 }
 
 void mandelbrot_print_usage(const char *prog_name) {
@@ -69,6 +71,9 @@ void mandelbrot_print_usage(const char *prog_name) {
     printf("\nParallelisation Options:\n");
     printf("  --threads <count>     Number of worker threads\n");
     printf("  --chunk-size <rows>   Rows assigned per scheduler request\n");
+    printf("\nRendering Backend Options:\n");
+    printf("  --backend <name>      Rendering backend\n");
+    printf("                        Available: full, seahorse, deep-zoom\n");
     printf("\nPreset Options:\n");
     printf("  --preset <name>       Use a named render preset\n");
     printf("                        Available: full, seahorse, deep-zoom\n");
@@ -372,6 +377,35 @@ int mandelbrot_parse_args(MandelbrotConfig *cfg, int argc, char *argv[]) {
 
             cfg->output_file = argv[++i];
         }
+        else if (strcmp(argv[i], "--backend") == 0) {
+            if (i + 1 >= argc) {
+                fprintf(stderr,
+                        "Error: --backend requires a value\n");
+                error_count++;
+                continue;
+            }
+
+            const char *backend = argv[++i];
+
+            if (strcmp(backend, "serial") == 0) {
+                cfg->backend = MANDELBROT_BACKEND_SERIAL;
+            }
+            else if (strcmp(backend, "pthread") == 0) {
+                cfg->backend = MANDELBROT_BACKEND_PTHREAD;
+            }
+            else if (strcmp(backend, "avx2") == 0) {
+                cfg->backend = MANDELBROT_BACKEND_AVX2;
+            }
+            else if (strcmp(backend, "pthread-avx2") == 0) {
+                cfg->backend = MANDELBROT_BACKEND_PTHREAD_AVX2;
+            }
+            else {
+                fprintf(stderr,
+                        "Error: unknown backend '%s'\n",
+                        backend);
+                error_count++;
+            }
+        }
         else {
             fprintf(stderr, "Error: unknown option '%s'\n", argv[i]);
             error_count++;
@@ -482,6 +516,11 @@ int mandelbrot_parse_args(MandelbrotConfig *cfg, int argc, char *argv[]) {
 
     if (error_count > 0) {
         return 1;
+    }
+
+    if (cfg->threads > 1 &&
+        cfg->backend == MANDELBROT_BACKEND_SERIAL) {
+        cfg->backend = MANDELBROT_BACKEND_PTHREAD;
     }
 
     return 0;
@@ -695,17 +734,36 @@ static void *mandelbrot_thread_worker(void *arg) {
         }
 
         for (int y = start_row; y < end_row; y++) {
+
+            if (cfg->backend == MANDELBROT_BACKEND_PTHREAD_AVX2) {
+                mandelbrot_compute_row_avx2(
+                    cfg,
+                    img,
+                    y,
+                    args->local_histogram
+                );
+
+                continue;
+            }
+
             for (int x = 0; x < width; x++) {
                 double cr = cfg->x_min + x * x_scale;
                 double ci = cfg->y_min + y * y_scale;
 
                 MandelbrotPointResult result =
-                    mandelbrot_iterations(cr, ci, cfg->max_iter);
+                    mandelbrot_iterations(
+                        cr,
+                        ci,
+                        cfg->max_iter
+                    );
 
                 int index = y * width + x;
 
-                img->iterations[index] = result.iterations;
-                img->smooth_values[index] = result.smooth_value;
+                img->iterations[index] =
+                    result.iterations;
+
+                img->smooth_values[index] =
+                    result.smooth_value;
 
                 if (result.iterations < cfg->max_iter) {
                     args->local_histogram[result.iterations]++;
@@ -713,6 +771,7 @@ static void *mandelbrot_thread_worker(void *arg) {
             }
         }
     }
+
     return NULL;
 }
 
@@ -891,3 +950,9 @@ int mandelbrot_compute_pthreads(const MandelbrotConfig *cfg,
 }
 
 
+int mandelbrot_compute_pthreads_avx2(
+    const MandelbrotConfig *cfg,
+    MandelbrotImage *img) {
+
+    return mandelbrot_compute_pthreads(cfg, img);
+}

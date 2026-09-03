@@ -26,17 +26,35 @@ int main(int argc, char *argv[]) {
 
     clock_gettime(CLOCK_MONOTONIC, &start);
 
-    if (cfg.threads == 1) {
-        mandelbrot_compute_serial(&cfg, &img);
-    }
-    else {
-        if (mandelbrot_compute_pthreads(&cfg, &img) != 0) {
-            fprintf(stderr, "Error: parallel Mandelbrot computation failed\n");
-            mandelbrot_image_free(&img);
-            return 1;
-        }
-    }
+    int compute_error = 0;
 
+    switch (cfg.backend) {
+        case MANDELBROT_BACKEND_SERIAL:
+            mandelbrot_compute_serial(&cfg, &img);
+            break;
+
+        case MANDELBROT_BACKEND_PTHREAD:
+            compute_error =
+                mandelbrot_compute_pthreads(&cfg, &img);
+            break;
+
+        case MANDELBROT_BACKEND_AVX2:
+            mandelbrot_compute_avx2(&cfg, &img);
+            break;
+
+        case MANDELBROT_BACKEND_PTHREAD_AVX2:
+            compute_error =
+                mandelbrot_compute_pthreads_avx2(
+                    &cfg,
+                    &img
+                );
+            break;
+        }
+
+    if (compute_error != 0) {
+        mandelbrot_image_free(&img);
+        return 1;
+    }
     clock_gettime(CLOCK_MONOTONIC, &end);
 
     double elapsed =
@@ -71,12 +89,24 @@ int main(int argc, char *argv[]) {
     printf("Resolution: %dx%d\n", cfg.width, cfg.height);
     printf("Iterations: %d\n", cfg.max_iter);
     printf("Gamma: %.2f\n", cfg.gamma);
-    if (cfg.threads == 1) {
-        printf("Mode: Serial\n");
-    }
-    else {
-        printf("Mode: Pthreads (%d threads)\n", cfg.threads);
-        printf("Chunk size: %d rows\n", cfg.chunk_size);
+    switch (cfg.backend) {
+        case MANDELBROT_BACKEND_SERIAL:
+            printf("Mode: Serial\n");
+            break;
+
+        case MANDELBROT_BACKEND_PTHREAD:
+            printf("Mode: Pthreads (%d threads)\n", cfg.threads);
+            printf("Chunk size: %d rows\n", cfg.chunk_size);
+            break;
+
+        case MANDELBROT_BACKEND_AVX2:
+            printf("Mode: AVX2\n");
+            break;
+
+        case MANDELBROT_BACKEND_PTHREAD_AVX2:
+            printf("Mode: Pthreads + AVX2 (%d threads)\n", cfg.threads);
+            printf("Chunk size: %d rows\n", cfg.chunk_size);
+            break;
     }
     printf("Bounds: x=[%.12f, %.12f], y=[%.12f, %.12f]\n",
            cfg.x_min, cfg.x_max,

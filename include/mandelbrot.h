@@ -17,6 +17,15 @@
 
 /* ------------------------------- Configuration ------------------------------ */
 
+
+typedef enum {
+    MANDELBROT_BACKEND_SERIAL,
+    MANDELBROT_BACKEND_PTHREAD,
+    MANDELBROT_BACKEND_AVX2,
+    MANDELBROT_BACKEND_PTHREAD_AVX2
+} MandelbrotBackend;
+
+
 /*
  * Stores the user-controlled render settings.
  *
@@ -49,6 +58,8 @@ typedef struct {
 
     int threads;
     int chunk_size;
+
+    MandelbrotBackend backend;
 } MandelbrotConfig;
 /* -------------------------------- Image Data -------------------------------- */
 
@@ -151,6 +162,14 @@ void mandelbrot_compute_serial(const MandelbrotConfig *cfg, MandelbrotImage *img
 int mandelbrot_compute_pthreads(const MandelbrotConfig *cfg, MandelbrotImage *img);
 
 
+void mandelbrot_compute_avx2(const MandelbrotConfig *cfg, MandelbrotImage *img);
+
+int mandelbrot_compute_pthreads_avx2(const MandelbrotConfig *cfg, MandelbrotImage *img);
+
+void mandelbrot_compute_row_avx2(const MandelbrotConfig *cfg,
+                                 MandelbrotImage *img,
+                                 int y,
+                                 int *histogram);
 
 /* --------------------------- Colouring Functions ------------------------- */
 

@@ -8,7 +8,8 @@ TARGET = mandelbrot
 SRC = src/main.c \
       src/mandelbrot_core.c \
       src/mandelbrot_colour.c \
-      src/mandelbrot_output.c
+      src/mandelbrot_output.c \
+	  src/mandelbrot_avx2.c
 
 OBJ = $(SRC:.c=.o)
 
@@ -19,6 +20,9 @@ $(TARGET): $(OBJ)
 
 %.o: %.c include/mandelbrot.h
 	$(CC) $(CFLAGS) -c $< -o $@
+
+src/mandelbrot_avx2.o: src/mandelbrot_avx2.c include/mandelbrot.h
+	$(CC) $(CFLAGS) -mavx2 -c $< -o $@
 
 run: $(TARGET)
 	./$(TARGET)
