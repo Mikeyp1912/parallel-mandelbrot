@@ -1,6 +1,7 @@
 # Build files
 *.o
 mandelbrot
+test_avx2
 
 # Generated Mandelbrot output
 plot/*.dat
