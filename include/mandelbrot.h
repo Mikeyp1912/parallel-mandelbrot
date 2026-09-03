@@ -67,9 +67,10 @@ typedef struct {
  *      Continuous escape value for each pixel, used for smooth colouring.
  *      Size: width * height
  *
- * pixels:
- *      Final normalised pixel values after colouring.
- *      Size: width * height
+ * cdf:
+ *      Cumulative distribution of escaped iteration counts,
+ *      used for histogram-based colouring.
+ *      Size: max_iter
  */ 
 typedef struct {
 	int *iterations;

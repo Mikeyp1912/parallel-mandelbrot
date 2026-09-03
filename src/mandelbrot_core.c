@@ -554,11 +554,49 @@ void mandelbrot_image_free(MandelbrotImage *img) {
     img->cdf = NULL;
 }
 
+static inline int mandelbrot_known_interior(double cr, double ci) {
+    /*
+     * Main cardioid test.
+     *
+     * q = (x - 1/4)^2 + y^2
+     * Point is inside the cardioid if:
+     *
+     * q * (q + (x - 1/4)) <= 1/4 * y^2
+     */
+    double x = cr - 0.25;
+    double y2 = ci * ci;
+    double q = x * x + y2;
+
+    if (q * (q + x) <= 0.25 * y2) {
+        return 1;
+    }
+
+    /*
+     * Period-2 bulb.
+     *
+     * Center = (-1, 0)
+     * Radius = 1/4
+     */
+    double bulb_x = cr + 1.0;
+
+    if (bulb_x * bulb_x + y2 <= 0.0625) {
+        return 1;
+    }
+
+    return 0;
+}
 
 MandelbrotPointResult mandelbrot_iterations(double cr, double ci, int max_iter) {
+    MandelbrotPointResult result;
+
+    if (mandelbrot_known_interior(cr, ci)) {
+        result.iterations = max_iter;
+        result.smooth_value = 0.0;
+        return result;
+    }
+
 	double zr = 0.0;
 	double zi = 0.0;
-
 	int iter = 0;
 
 	while (zr * zr + zi * zi <= 4.0 && iter < max_iter) {
@@ -568,8 +606,6 @@ MandelbrotPointResult mandelbrot_iterations(double cr, double ci, int max_iter) 
 
 		iter++;
 	}
-
-	MandelbrotPointResult result;
 
     result.iterations = iter;
 
@@ -853,3 +889,5 @@ int mandelbrot_compute_pthreads(const MandelbrotConfig *cfg,
 
     return status;
 }
+
+

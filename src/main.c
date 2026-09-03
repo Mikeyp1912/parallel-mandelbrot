@@ -43,18 +43,16 @@ int main(int argc, char *argv[]) {
         (end.tv_sec - start.tv_sec) +
         (end.tv_nsec - start.tv_nsec) / 1e9;
 
-	if (mandelbrot_build_colour_cdf(&cfg, &img) != 0) {
-        fprintf(stderr, "Error: failed to build colour CDF\n");
-        mandelbrot_image_free(&img);
-        return 1;
-    }
-
 	if (!cfg.no_output) {
-        mandelbrot_build_colour_cdf(&cfg, &img);
+        if (mandelbrot_build_colour_cdf(&cfg, &img) != 0) {
+            fprintf(stderr, "Error: failed to build colour CDF\n");
+            mandelbrot_image_free(&img);
+            return 1;
+        }
 
         if (mandelbrot_write_png(cfg.output_file,
-                         &cfg,
-                         &img) != 0) {
+                                 &cfg,
+                                 &img) != 0) {
             fprintf(stderr, "Failed to write PNG output\n");
             mandelbrot_image_free(&img);
             return 1;
