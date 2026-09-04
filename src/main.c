@@ -95,18 +95,23 @@ int main(int argc, char *argv[]) {
             break;
 
         case MANDELBROT_BACKEND_PTHREAD:
-            printf("Mode: Pthreads (%d threads)\n", cfg.threads);
-            printf("Chunk size: %d rows\n", cfg.chunk_size);
-            break;
+        printf("Mode: Pthreads (%d threads)\n", cfg.threads);
+        printf("Tile size: %dx%d pixels\n",
+               cfg.tile_size,
+               cfg.tile_size);
+        break;
 
         case MANDELBROT_BACKEND_AVX2:
             printf("Mode: AVX2\n");
             break;
 
         case MANDELBROT_BACKEND_PTHREAD_AVX2:
-            printf("Mode: Pthreads + AVX2 (%d threads)\n", cfg.threads);
-            printf("Chunk size: %d rows\n", cfg.chunk_size);
-            break;
+        printf("Mode: Pthreads + AVX2 (%d threads)\n",
+               cfg.threads);
+        printf("Tile size: %dx%d pixels\n",
+               cfg.tile_size,
+               cfg.tile_size);
+        break;
     }
     printf("Bounds: x=[%.12f, %.12f], y=[%.12f, %.12f]\n",
            cfg.x_min, cfg.x_max,

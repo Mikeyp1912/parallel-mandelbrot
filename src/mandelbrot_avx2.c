@@ -181,10 +181,14 @@ static void mandelbrot_iterations_avx2_4(
     }
 }
 
-void mandelbrot_compute_row_avx2(const MandelbrotConfig *cfg,
-                                 MandelbrotImage *img,
-                                 int y,
-                                 int *histogram) {
+void mandelbrot_compute_row_range_avx2(
+            const MandelbrotConfig *cfg,
+            MandelbrotImage *img,
+            int y,
+            int x_start,
+            int x_end,
+            int *histogram
+        ) {
     double x_scale =
         (cfg->x_max - cfg->x_min) /
         (double)cfg->width;
@@ -197,9 +201,9 @@ void mandelbrot_compute_row_avx2(const MandelbrotConfig *cfg,
         cfg->y_min +
         (double)y * y_scale;
 
-    int x = 0;
+    int x = x_start;
 
-    for (; x + 3 < cfg->width; x += 4) {
+    for (; x + 3 < x_end; x += 4) {
 
         double cr_values[4] = {
             cfg->x_min + (double)(x + 0) * x_scale,
@@ -236,12 +240,11 @@ void mandelbrot_compute_row_avx2(const MandelbrotConfig *cfg,
             }
         }
     }
-
     /*
-     * Handle the final 1-3 pixels if width is not
-     * divisible by four.
+    * Handle the final 1-3 pixels in this range if its
+     * width is not divisible by four.
      */
-    for (; x < cfg->width; x++) {
+    for (; x < x_end; x++) {
 
         double cr =
             cfg->x_min +
@@ -251,7 +254,8 @@ void mandelbrot_compute_row_avx2(const MandelbrotConfig *cfg,
             mandelbrot_iterations(
                 cr,
                 ci,
-                cfg->max_iter
+                cfg->max_iter,
+                cfg->periodicity_check
             );
 
         size_t index =
@@ -268,6 +272,22 @@ void mandelbrot_compute_row_avx2(const MandelbrotConfig *cfg,
             histogram[result.iterations]++;
         }
     }
+}
+
+void mandelbrot_compute_row_avx2(
+    const MandelbrotConfig *cfg,
+    MandelbrotImage *img,
+    int y,
+    int *histogram
+) {
+    mandelbrot_compute_row_range_avx2(
+        cfg,
+        img,
+        y,
+        0,
+        cfg->width,
+        histogram
+    );
 }
 
 void mandelbrot_compute_avx2(const MandelbrotConfig *cfg,

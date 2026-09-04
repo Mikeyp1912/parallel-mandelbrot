@@ -10,16 +10,18 @@
 #include <limits.h>
 
 typedef struct {
-    int next_row;
-    int height;
-    int chunk_size;
+    int next_tile;
+    int tiles_x;
+    int tiles_y;
+    int tile_width;
+    int tile_height;
     pthread_mutex_t mutex;
-} MandelbrotScheduler;
+} MandelbrotTileScheduler;
 
 typedef struct {
     const MandelbrotConfig *cfg;
     MandelbrotImage *img;
-    MandelbrotScheduler *scheduler;
+    MandelbrotTileScheduler *scheduler;
     int *local_histogram;
 } MandelbrotThreadArgs;
 
@@ -43,9 +45,10 @@ void mandelbrot_set_defaults(MandelbrotConfig *cfg) {
     cfg->output_file = "plot/mandel.png";
 
     cfg->threads = 1;
-    cfg->chunk_size = 1;
+    cfg->tile_size = 32;
 
     cfg->backend = MANDELBROT_BACKEND_SERIAL;
+    cfg->periodicity_check = 1;
 }
 
 void mandelbrot_print_usage(const char *prog_name) {
@@ -70,10 +73,13 @@ void mandelbrot_print_usage(const char *prog_name) {
     printf("  --zoom <value>        Zoom factor (1.0 = full view)\n");
     printf("\nParallelisation Options:\n");
     printf("  --threads <count>     Number of worker threads\n");
-    printf("  --chunk-size <rows>   Rows assigned per scheduler request\n");
+    printf("  --tile-size <pixels>  Width and height of scheduler tiles\n");
     printf("\nRendering Backend Options:\n");
     printf("  --backend <name>      Rendering backend\n");
-    printf("                        Available: full, seahorse, deep-zoom\n");
+    printf("                        Available: serial, pthread, avx2, pthread-avx2\n");
+    printf("\nOptimisation Options:\n");
+    printf("  --periodicity         Enable periodicity checking\n");
+    printf("  --no-periodicity      Disable periodicity checking\n");
     printf("\nPreset Options:\n");
     printf("  --preset <name>       Use a named render preset\n");
     printf("                        Available: full, seahorse, deep-zoom\n");
@@ -291,15 +297,15 @@ int mandelbrot_parse_args(MandelbrotConfig *cfg, int argc, char *argv[]) {
             }
         }
 
-        else if (strcmp(argv[i], "--chunk-size") == 0) {
+        else if (strcmp(argv[i], "--tile-size") == 0) {
             if (i + 1 >= argc) {
-                fprintf(stderr, "Error: missing value for --chunk-size\n");
+                fprintf(stderr, "Error: missing value for --tile-size\n");
                 error_count++;
                 continue;
             }
 
-            if (parse_int(argv[++i], &cfg->chunk_size) != 0) {
-                fprintf(stderr, "Error: invalid chunk size\n");
+            if (parse_int(argv[++i], &cfg->tile_size) != 0) {
+                fprintf(stderr, "Error: invalid tile size\n");
                 error_count++;
             }
         }
@@ -406,6 +412,12 @@ int mandelbrot_parse_args(MandelbrotConfig *cfg, int argc, char *argv[]) {
                 error_count++;
             }
         }
+        else if (strcmp(argv[i], "--periodicity") == 0) {
+            cfg->periodicity_check = 1;
+        }
+        else if (strcmp(argv[i], "--no-periodicity") == 0) {
+            cfg->periodicity_check = 0;
+        }
         else {
             fprintf(stderr, "Error: unknown option '%s'\n", argv[i]);
             error_count++;
@@ -446,8 +458,8 @@ int mandelbrot_parse_args(MandelbrotConfig *cfg, int argc, char *argv[]) {
         error_count++;
     }
 
-    if (cfg->chunk_size <= 0) {
-        fprintf(stderr, "Error: chunk size must be greater than 0\n");
+    if (cfg->tile_size <= 0) {
+        fprintf(stderr, "Error: tile size must be greater than 0\n");
         error_count++;
     }
 
@@ -625,7 +637,7 @@ static inline int mandelbrot_known_interior(double cr, double ci) {
     return 0;
 }
 
-MandelbrotPointResult mandelbrot_iterations(double cr, double ci, int max_iter) {
+MandelbrotPointResult mandelbrot_iterations(double cr, double ci, int max_iter, int periodicity_check) {
     MandelbrotPointResult result;
 
     if (mandelbrot_known_interior(cr, ci)) {
@@ -635,16 +647,45 @@ MandelbrotPointResult mandelbrot_iterations(double cr, double ci, int max_iter) 
     }
 
 	double zr = 0.0;
-	double zi = 0.0;
-	int iter = 0;
+    double zi = 0.0;
 
-	while (zr * zr + zi * zi <= 4.0 && iter < max_iter) {
-		double temp = zr * zr - zi * zi + cr;
-		zi = 2.0 * zr * zi + ci;
-		zr = temp;
+    int iter = 0;
 
-		iter++;
-	}
+    double check_zr = 0.0;
+    double check_zi = 0.0;
+
+    int period = 0;
+    int check_interval = 20;
+
+    while (zr * zr + zi * zi <= 4.0 &&
+           iter < max_iter) {
+
+        double temp = zr * zr - zi * zi + cr;
+
+        zi = 2.0 * zr * zi + ci;
+        zr = temp;
+
+        iter++;
+
+        if (periodicity_check) {
+            period++;
+
+            if (period >= check_interval) {
+                if (zr == check_zr && zi == check_zi) {
+                    iter = max_iter;
+                    break;
+                }
+
+                check_zr = zr;
+                check_zi = zi;
+                period = 0;
+
+                if (check_interval < 1024) {
+                    check_interval *= 2;
+                }
+            }
+        }
+    }
 
     result.iterations = iter;
 
@@ -661,114 +702,104 @@ MandelbrotPointResult mandelbrot_iterations(double cr, double ci, int max_iter) 
 }
 
 
-void mandelbrot_compute_serial(const MandelbrotConfig * cfg, MandelbrotImage *img) {
-	int width = cfg->width;
-	int height = cfg->height;
+void mandelbrot_compute_serial(const MandelbrotConfig *cfg, MandelbrotImage *img) {
+    MandelbrotTile tile = {
+        .x_start = 0,
+        .y_start = 0,
+        .width = cfg->width,
+        .height = cfg->height
+    };
 
-	double x_scale = (cfg->x_max - cfg->x_min) / width;
-	double y_scale = (cfg->y_max - cfg->y_min) / height;
-
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < width; x++) {
-			double cr = cfg->x_min + x * x_scale;
-			double ci = cfg->y_min + y * y_scale;
-
-			MandelbrotPointResult result = mandelbrot_iterations(cr, ci, cfg->max_iter);
-
-			int index = y * width + x;
-
-			img->iterations[index] = result.iterations;
-            img->smooth_values[index] = result.smooth_value;
-
-			if (result.iterations < cfg->max_iter) {
-				img->histogram[result.iterations]++;
-			}
-		}
-	}
-	
+    mandelbrot_compute_tile_scalar(
+        cfg,
+        img,
+        &tile,
+        img->histogram
+    );
 }
 
-static int scheduler_get_next_chunk(MandelbrotScheduler *scheduler, int *start_row, int *end_row) {
+static int tile_scheduler_get_next(MandelbrotTileScheduler *scheduler, MandelbrotTile *tile) {
     pthread_mutex_lock(&scheduler->mutex);
 
-    if (scheduler->next_row >= scheduler->height) {
+    int tile_index = scheduler->next_tile;
+
+    if (tile_index >= scheduler->tiles_x * scheduler->tiles_y) {
         pthread_mutex_unlock(&scheduler->mutex);
         return 0;
     }
 
-    *start_row = scheduler->next_row;
-
-    scheduler->next_row += scheduler->chunk_size;
-
-    if (scheduler->next_row > scheduler->height) {
-        scheduler->next_row = scheduler->height;
-    }
-
-    *end_row = scheduler->next_row;
+    scheduler->next_tile++;
 
     pthread_mutex_unlock(&scheduler->mutex);
+
+    int tile_x = tile_index % scheduler->tiles_x;
+    int tile_y = tile_index / scheduler->tiles_x;
+
+    tile->x_start = tile_x * scheduler->tile_width;
+    tile->y_start = tile_y * scheduler->tile_height;
+
+    tile->width = scheduler->tile_width;
+    tile->height = scheduler->tile_height;
 
     return 1;
 }
 
 static void *mandelbrot_thread_worker(void *arg) {
-    MandelbrotThreadArgs *args = (MandelbrotThreadArgs *)arg;
+    MandelbrotThreadArgs *args =
+        (MandelbrotThreadArgs *)arg;
 
     const MandelbrotConfig *cfg = args->cfg;
     MandelbrotImage *img = args->img;
 
-    int width = cfg->width;
-    int height = cfg->height;
+    MandelbrotTile tile;
 
-    double x_scale = (cfg->x_max - cfg->x_min) / width;
-    double y_scale = (cfg->y_max - cfg->y_min) / height;
+    while (tile_scheduler_get_next(
+        args->scheduler,
+        &tile
+    )) {
+        int x_end = tile.x_start + tile.width;
+        int y_end = tile.y_start + tile.height;
 
-    while (1) {
-        int start_row;
-        int end_row;
-
-        if (!scheduler_get_next_chunk(args->scheduler,
-                                      &start_row,
-                                      &end_row)) {
-            break;
+        /*
+         * Clamp edge tiles to the image dimensions.
+         */
+        if (x_end > cfg->width) {
+            x_end = cfg->width;
         }
 
-        for (int y = start_row; y < end_row; y++) {
+        if (y_end > cfg->height) {
+            y_end = cfg->height;
+        }
 
-            if (cfg->backend == MANDELBROT_BACKEND_PTHREAD_AVX2) {
-                mandelbrot_compute_row_avx2(
+        if (cfg->backend ==
+            MANDELBROT_BACKEND_PTHREAD_AVX2) {
+
+            /*
+             * AVX2 renderer works on horizontal ranges,
+             * so process each row contained in the tile.
+             */
+            for (int y = tile.y_start; y < y_end; y++) {
+                mandelbrot_compute_row_range_avx2(
                     cfg,
                     img,
                     y,
+                    tile.x_start,
+                    x_end,
                     args->local_histogram
                 );
-
-                continue;
             }
-
-            for (int x = 0; x < width; x++) {
-                double cr = cfg->x_min + x * x_scale;
-                double ci = cfg->y_min + y * y_scale;
-
-                MandelbrotPointResult result =
-                    mandelbrot_iterations(
-                        cr,
-                        ci,
-                        cfg->max_iter
-                    );
-
-                int index = y * width + x;
-
-                img->iterations[index] =
-                    result.iterations;
-
-                img->smooth_values[index] =
-                    result.smooth_value;
-
-                if (result.iterations < cfg->max_iter) {
-                    args->local_histogram[result.iterations]++;
-                }
-            }
+        }
+        else {
+            /*
+             * Scalar tile renderer already performs its
+             * own boundary clamping.
+             */
+            mandelbrot_compute_tile_scalar(
+                cfg,
+                img,
+                &tile,
+                args->local_histogram
+            );
         }
     }
 
@@ -828,14 +859,23 @@ int mandelbrot_compute_pthreads(const MandelbrotConfig *cfg,
 
 
     /*
-     * Initialise the shared dynamic scheduler.
+     * Initialise the shared dynamic tile scheduler.
      */
 
-    MandelbrotScheduler scheduler;
+    MandelbrotTileScheduler scheduler;
 
-    scheduler.next_row = 0;
-    scheduler.height = cfg->height;
-    scheduler.chunk_size = cfg->chunk_size;
+    scheduler.next_tile = 0;
+
+    scheduler.tile_width = cfg->tile_size;
+    scheduler.tile_height = cfg->tile_size;
+
+    scheduler.tiles_x =
+        (cfg->width + scheduler.tile_width - 1) /
+        scheduler.tile_width;
+
+    scheduler.tiles_y =
+        (cfg->height + scheduler.tile_height - 1) /
+        scheduler.tile_height;
 
     int mutex_result =
         pthread_mutex_init(&scheduler.mutex, NULL);
@@ -855,7 +895,6 @@ int mandelbrot_compute_pthreads(const MandelbrotConfig *cfg,
 
         return 1;
     }
-
 
     /*
      * Create worker threads.
@@ -956,3 +995,70 @@ int mandelbrot_compute_pthreads_avx2(
 
     return mandelbrot_compute_pthreads(cfg, img);
 }
+
+void mandelbrot_compute_tile_scalar(
+    const MandelbrotConfig *cfg,
+    MandelbrotImage *img,
+    const MandelbrotTile *tile,
+    int *histogram
+) {
+    double x_scale =
+        (cfg->x_max - cfg->x_min) /
+        (double)cfg->width;
+
+    double y_scale =
+        (cfg->y_max - cfg->y_min) /
+        (double)cfg->height;
+
+    int x_end = tile->x_start + tile->width;
+    int y_end = tile->y_start + tile->height;
+
+    /*
+     * Clamp the tile to the image bounds.
+     * This is also required later because edge tiles may be
+     * smaller than the configured tile size.
+     */
+    if (x_end > cfg->width) {
+        x_end = cfg->width;
+    }
+
+    if (y_end > cfg->height) {
+        y_end = cfg->height;
+    }
+
+    for (int y = tile->y_start; y < y_end; y++) {
+        double ci =
+            cfg->y_min +
+            (double)y * y_scale;
+
+        for (int x = tile->x_start; x < x_end; x++) {
+            double cr =
+                cfg->x_min +
+                (double)x * x_scale;
+
+            MandelbrotPointResult result =
+                mandelbrot_iterations(
+                    cr,
+                    ci,
+                    cfg->max_iter,
+                    cfg->periodicity_check
+                );
+
+            size_t index =
+                (size_t)y * (size_t)cfg->width +
+                (size_t)x;
+
+            img->iterations[index] =
+                result.iterations;
+
+            img->smooth_values[index] =
+                result.smooth_value;
+
+            if (result.iterations < cfg->max_iter) {
+                histogram[result.iterations]++;
+            }
+        }
+    }
+}
+
+

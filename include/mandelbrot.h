@@ -57,10 +57,14 @@ typedef struct {
     const char *output_file;
 
     int threads;
-    int chunk_size;
+    int tile_size;
 
     MandelbrotBackend backend;
+    int periodicity_check;
 } MandelbrotConfig;
+
+
+
 /* -------------------------------- Image Data -------------------------------- */
 
 /*
@@ -148,7 +152,7 @@ typedef struct {
  *     The number of iterations before escape, or max_iter if the point
  *     does not escape within the limit.
  */
-MandelbrotPointResult mandelbrot_iterations(double cr, double ci, int max_iter);
+MandelbrotPointResult mandelbrot_iterations(double cr, double ci, int max_iter, int periodicity_check);
 
 /*
  * Computes the Mandelbrot iteration count for every pixel in the image
@@ -170,6 +174,30 @@ void mandelbrot_compute_row_avx2(const MandelbrotConfig *cfg,
                                  MandelbrotImage *img,
                                  int y,
                                  int *histogram);
+
+typedef struct {
+    int x_start;
+    int y_start;
+    int width;
+    int height;
+} MandelbrotTile;
+
+void mandelbrot_compute_tile_scalar(
+        const MandelbrotConfig *cfg,
+        MandelbrotImage *img,
+        const MandelbrotTile *tile,
+        int *histogram
+        );
+
+
+void mandelbrot_compute_row_range_avx2(
+        const MandelbrotConfig *cfg,
+        MandelbrotImage *img,
+        int y,
+        int x_start,
+        int x_end,
+        int *histogram
+        );
 
 /* --------------------------- Colouring Functions ------------------------- */
 
