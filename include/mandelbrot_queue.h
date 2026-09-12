@@ -12,6 +12,7 @@ typedef struct {
     int head;
     int tail;
     int count;
+    int closed;
 
     pthread_mutex_t mutex;
     pthread_cond_t not_empty;
@@ -40,7 +41,11 @@ int mandelbrot_tile_queue_pop(
 int mandelbrot_tile_queue_try_pop(
     MandelbrotTileQueue *queue,
     MandelbrotTile *tile
-);
+        );
+
+void mandelbrot_tile_queue_close(
+        MandelbrotTileQueue *queue
+        );
 
 
 #endif

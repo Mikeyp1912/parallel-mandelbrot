@@ -21,10 +21,13 @@ static void queue_tile_callback(
     MandelbrotTileQueue *queue =
         (MandelbrotTileQueue *)user_data;
 
-    mandelbrot_tile_queue_push(
-        queue,
-        tile
-    );
+    if (mandelbrot_tile_queue_push(
+            queue,
+            tile
+        ) != 0) {
+
+        return;
+    }
 }
 
 static void *render_thread(void *arg) {
@@ -36,7 +39,8 @@ static void *render_thread(void *arg) {
             args->cfg,
             args->img,
             queue_tile_callback,
-            args->queue
+            args->queue,
+            NULL
         );
 
     return NULL;

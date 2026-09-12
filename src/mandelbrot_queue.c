@@ -20,6 +20,7 @@ int mandelbrot_tile_queue_init(
     queue->head = 0;
     queue->tail = 0;
     queue->count = 0;
+    queue->closed = 0;
 
     if (pthread_mutex_init(&queue->mutex, NULL) != 0) {
         free(queue->tiles);
@@ -63,6 +64,7 @@ void mandelbrot_tile_queue_destroy(
     queue->head = 0;
     queue->tail = 0;
     queue->count = 0;
+    queue->closed = 1;
 }
 
 int mandelbrot_tile_queue_push(
@@ -75,11 +77,18 @@ int mandelbrot_tile_queue_push(
 
     pthread_mutex_lock(&queue->mutex);
 
-    while (queue->count == queue->capacity) {
+    while (queue->count == queue->capacity &&
+           !queue->closed) {
+
         pthread_cond_wait(
-                &queue->not_full,
-                &queue->mutex
-                );
+            &queue->not_full,
+            &queue->mutex
+        );
+    }
+
+    if (queue->closed) {
+        pthread_mutex_unlock(&queue->mutex);
+        return 1;
     }
 
     queue->tiles[queue->tail] = *tile;
@@ -105,11 +114,20 @@ int mandelbrot_tile_queue_pop(
 
     pthread_mutex_lock(&queue->mutex);
 
-    while (queue->count == 0) {
+     while (queue->count == 0 &&
+           !queue->closed) {
+
         pthread_cond_wait(
             &queue->not_empty,
             &queue->mutex
         );
+    }
+
+    if (queue->count == 0 &&
+        queue->closed) {
+
+        pthread_mutex_unlock(&queue->mutex);
+        return 1;
     }
 
     *tile = queue->tiles[queue->head];
@@ -163,4 +181,21 @@ int mandelbrot_tile_queue_try_pop(
     );
 
     return 1;
+}
+
+void mandelbrot_tile_queue_close(
+        MandelbrotTileQueue *queue
+        ) {
+    if (!queue) {
+        return;
+    }
+
+    pthread_mutex_lock(&queue->mutex);
+
+    queue->closed = 1;
+
+    pthread_cond_broadcast(&queue->not_empty);
+    pthread_cond_broadcast(&queue->not_full);
+
+    pthread_mutex_unlock(&queue->mutex);
 }

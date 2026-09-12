@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdatomic.h>
 
 /*
  * mandelbrot.h
@@ -193,7 +194,8 @@ int mandelbrot_compute_pthreads_progressive(
         const MandelbrotConfig *cfg,
         MandelbrotImage *img,
         MandelbrotTileCompleteCallback callback,
-        void *user_data
+        void *user_data,
+        const atomic_int *cancel_requested
         );
 
 void mandelbrot_compute_tile_scalar(

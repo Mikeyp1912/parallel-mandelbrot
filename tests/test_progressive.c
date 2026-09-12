@@ -108,7 +108,8 @@ int main(void) {
             &cfg,
             &img,
             tile_complete_callback,
-            &counter
+            &counter,
+            NULL
         );
 
     printf("\nProgressive callback validation\n");

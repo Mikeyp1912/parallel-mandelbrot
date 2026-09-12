@@ -25,6 +25,7 @@ typedef struct {
     int *local_histogram;
     MandelbrotTileCompleteCallback callback;
     void *callback_user_data;
+    const atomic_int *cancel_requested;
 } MandelbrotThreadArgs;
 
 
@@ -750,15 +751,29 @@ static void *mandelbrot_thread_worker(void *arg) {
     MandelbrotThreadArgs *args =
         (MandelbrotThreadArgs *)arg;
 
+    MandelbrotTile tile;
+
     const MandelbrotConfig *cfg = args->cfg;
     MandelbrotImage *img = args->img;
 
-    MandelbrotTile tile;
+    while (1) {
+        if (args->cancel_requested &&
+            atomic_load(args->cancel_requested)) {
+            break;
+        }
 
-    while (tile_scheduler_get_next(
-        args->scheduler,
-        &tile
-    )) {
+        if (!tile_scheduler_get_next(
+                args->scheduler,
+                &tile)) {
+            break;
+        }
+
+        if (args->cancel_requested &&
+            atomic_load(args->cancel_requested)) {
+            break;
+        }
+
+    /* existing tile render */
         int x_end = tile.x_start + tile.width;
         int y_end = tile.y_start + tile.height;
 
@@ -810,6 +825,7 @@ static void *mandelbrot_thread_worker(void *arg) {
                 args->callback_user_data
             );
         }
+
     }
 
     return NULL;
@@ -819,7 +835,8 @@ int mandelbrot_compute_pthreads_progressive(
         const MandelbrotConfig *cfg,
         MandelbrotImage *img,
         MandelbrotTileCompleteCallback callback,
-        void *user_data) {
+        void *user_data,
+        const atomic_int *cancel_requested) {
     int thread_count = cfg->threads;
     int created_threads = 0;
     int status = 0;
@@ -914,6 +931,7 @@ int mandelbrot_compute_pthreads_progressive(
         args[t].local_histogram = local_histograms[t];
         args[t].callback = callback;
         args[t].callback_user_data = user_data;
+        args[t].cancel_requested = cancel_requested;
 
         int create_result =
             pthread_create(&threads[t],
@@ -1004,6 +1022,7 @@ int mandelbrot_compute_pthreads(
     return mandelbrot_compute_pthreads_progressive(
             cfg,
             img,
+            NULL,
             NULL,
             NULL
             );
