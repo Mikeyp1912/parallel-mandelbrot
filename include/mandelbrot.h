@@ -182,6 +182,19 @@ typedef struct {
     int height;
 } MandelbrotTile;
 
+
+typedef void (*MandelbrotTileCompleteCallback)(
+        const MandelbrotTile *tile,
+        void *user_data
+        );
+
+int mandelbrot_compute_pthreads_progressive(
+        const MandelbrotConfig *cfg,
+        MandelbrotImage *img,
+        MandelbrotTileCompleteCallback callback,
+        void *user_data
+        );
+
 void mandelbrot_compute_tile_scalar(
         const MandelbrotConfig *cfg,
         MandelbrotImage *img,

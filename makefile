@@ -6,6 +6,7 @@ LDLIBS = -lm -pthread -lpng
 TARGET = mandelbrot
 TEST_AVX2 = test_avx2
 TEST_TILES = test_tiles
+TEST_PROGRESSIVE = test_progressive
 
 SRC = src/main.c \
       src/mandelbrot_core.c \
@@ -46,6 +47,19 @@ $(TEST_TILES): tests/test_tiles.c \
 	    -o $(TEST_TILES) \
 	    $(LDLIBS)
 
+$(TEST_PROGRESSIVE): tests/test_progressive.c \
+                     src/mandelbrot_core.o \
+                     src/mandelbrot_avx2.o
+	$(CC) $(CFLAGS) \
+	    tests/test_progressive.c \
+	    src/mandelbrot_core.o \
+	    src/mandelbrot_avx2.o \
+	    -o $(TEST_PROGRESSIVE) \
+	    $(LDLIBS)
+
+test-progressive: $(TEST_PROGRESSIVE)
+	./$(TEST_PROGRESSIVE)
+
 test-tiles: $(TEST_TILES)
 	./$(TEST_TILES)
 test-avx2: $(TEST_AVX2)
@@ -55,11 +69,16 @@ run: $(TARGET)
 	./$(TARGET)
 
 clean:
-	rm -f $(OBJ) $(TARGET) $(TEST_AVX2) $(TEST_TILES)
+	rm -f $(OBJ) \
+	      $(TARGET) \
+	      $(TEST_AVX2) \
+	      $(TEST_TILES) \
+	      $(TEST_PROGRESSIVE)
 
 clean-render:
 	rm -f plot/mandel.png
 
 clean-all: clean clean-render
 
-.PHONY: all run clean clean-render clean-all test-avx2 test-tiles
+.PHONY: all run clean clean-render clean-all \
+        test-avx2 test-tiles test-progressive

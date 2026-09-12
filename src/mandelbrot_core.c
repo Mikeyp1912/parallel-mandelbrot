@@ -23,6 +23,8 @@ typedef struct {
     MandelbrotImage *img;
     MandelbrotTileScheduler *scheduler;
     int *local_histogram;
+    MandelbrotTileCompleteCallback callback;
+    void *callback_user_data;
 } MandelbrotThreadArgs;
 
 
@@ -801,13 +803,23 @@ static void *mandelbrot_thread_worker(void *arg) {
                 args->local_histogram
             );
         }
+
+        if (args->callback) {
+            args->callback(
+                &tile,
+                args->callback_user_data
+            );
+        }
     }
 
     return NULL;
 }
 
-int mandelbrot_compute_pthreads(const MandelbrotConfig *cfg,
-                                MandelbrotImage *img) {
+int mandelbrot_compute_pthreads_progressive(
+        const MandelbrotConfig *cfg,
+        MandelbrotImage *img,
+        MandelbrotTileCompleteCallback callback,
+        void *user_data) {
     int thread_count = cfg->threads;
     int created_threads = 0;
     int status = 0;
@@ -869,16 +881,11 @@ int mandelbrot_compute_pthreads(const MandelbrotConfig *cfg,
     scheduler.tile_width = cfg->tile_size;
     scheduler.tile_height = cfg->tile_size;
 
-    scheduler.tiles_x =
-        (cfg->width + scheduler.tile_width - 1) /
-        scheduler.tile_width;
+    scheduler.tiles_x = (cfg->width + scheduler.tile_width - 1) / scheduler.tile_width;
 
-    scheduler.tiles_y =
-        (cfg->height + scheduler.tile_height - 1) /
-        scheduler.tile_height;
+    scheduler.tiles_y = (cfg->height + scheduler.tile_height - 1) / scheduler.tile_height;
 
-    int mutex_result =
-        pthread_mutex_init(&scheduler.mutex, NULL);
+    int mutex_result = pthread_mutex_init(&scheduler.mutex, NULL);
 
     if (mutex_result != 0) {
         fprintf(stderr,
@@ -905,6 +912,8 @@ int mandelbrot_compute_pthreads(const MandelbrotConfig *cfg,
         args[t].img = img;
         args[t].scheduler = &scheduler;
         args[t].local_histogram = local_histograms[t];
+        args[t].callback = callback;
+        args[t].callback_user_data = user_data;
 
         int create_result =
             pthread_create(&threads[t],
@@ -988,6 +997,17 @@ int mandelbrot_compute_pthreads(const MandelbrotConfig *cfg,
     return status;
 }
 
+int mandelbrot_compute_pthreads(
+        const MandelbrotConfig *cfg,
+        MandelbrotImage *img
+        ) {
+    return mandelbrot_compute_pthreads_progressive(
+            cfg,
+            img,
+            NULL,
+            NULL
+            );
+} 
 
 int mandelbrot_compute_pthreads_avx2(
     const MandelbrotConfig *cfg,
