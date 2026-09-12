@@ -124,3 +124,43 @@ int mandelbrot_tile_queue_pop(
 
     return 0;
 }
+
+int mandelbrot_tile_queue_try_pop(
+    MandelbrotTileQueue *queue,
+    MandelbrotTile *tile
+) {
+    if (!queue || !tile) {
+        return 0;
+    }
+
+    pthread_mutex_lock(
+        &queue->mutex
+    );
+
+    if (queue->count == 0) {
+        pthread_mutex_unlock(
+            &queue->mutex
+        );
+
+        return 0;
+    }
+
+    *tile =
+        queue->tiles[queue->head];
+
+    queue->head =
+        (queue->head + 1) %
+        queue->capacity;
+
+    queue->count--;
+
+    pthread_cond_signal(
+        &queue->not_full
+    );
+
+    pthread_mutex_unlock(
+        &queue->mutex
+    );
+
+    return 1;
+}

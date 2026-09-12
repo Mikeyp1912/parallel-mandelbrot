@@ -4,11 +4,18 @@ CFLAGS = -Wall -Wextra -O2 -Iinclude -pthread
 LDLIBS = -lm -pthread -lpng
 
 TARGET = mandelbrot
+VIEWER = mandelbrot_viewer
+
+SDL_CFLAGS = $(shell pkg-config --cflags sdl3)
+SDL_LIBS = $(shell pkg-config --libs sdl3)
+
+
 TEST_AVX2 = test_avx2
 TEST_TILES = test_tiles
 TEST_PROGRESSIVE = test_progressive
 TEST_QUEUE = test_queue
 TEST_PROGRESSIVE_QUEUE = test_progressive_queue
+
 
 SRC = src/main.c \
       src/mandelbrot_core.c \
@@ -34,6 +41,25 @@ src/mandelbrot_queue.o: src/mandelbrot_queue.c \
                         include/mandelbrot_queue.h \
                         include/mandelbrot.h
 	$(CC) $(CFLAGS) -c $< -o $@
+
+
+
+$(VIEWER): src/viewer.c \
+           src/mandelbrot_core.o \
+           src/mandelbrot_colour.o \
+           src/mandelbrot_avx2.o \
+           src/mandelbrot_queue.o
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) \
+	    src/viewer.c \
+	    src/mandelbrot_core.o \
+	    src/mandelbrot_colour.o \
+	    src/mandelbrot_avx2.o \
+	    src/mandelbrot_queue.o \
+	    -o $(VIEWER) \
+	    $(LDLIBS) \
+	    $(SDL_LIBS)
+
+
 
 $(TEST_AVX2): tests/test_avx2.c \
               src/mandelbrot_core.o \
@@ -96,8 +122,12 @@ test-progressive: $(TEST_PROGRESSIVE)
 
 test-tiles: $(TEST_TILES)
 	./$(TEST_TILES)
+
 test-avx2: $(TEST_AVX2)
 	./$(TEST_AVX2)
+
+viewer: $(VIEWER)
+	./$(VIEWER)
 
 run: $(TARGET)
 	./$(TARGET)
@@ -105,6 +135,7 @@ run: $(TARGET)
 clean:
 	rm -f $(OBJ) \
 	      $(TARGET) \
+	      $(VIEWER) \
 	      $(TEST_AVX2) \
 	      $(TEST_TILES) \
 	      $(TEST_PROGRESSIVE) \
@@ -116,6 +147,6 @@ clean-render:
 
 clean-all: clean clean-render
 
-.PHONY: all run clean clean-render clean-all \
+.PHONY: all run viewer clean clean-render clean-all \
         test-avx2 test-tiles test-progressive \
         test-queue test-progressive-queue

@@ -1,6 +1,7 @@
 # Build files
 *.o
 mandelbrot
+mandelbrot_viewer
 test_avx2
 test_tiles
 test_progressive

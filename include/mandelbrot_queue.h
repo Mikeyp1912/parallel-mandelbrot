@@ -37,4 +37,10 @@ int mandelbrot_tile_queue_pop(
         MandelbrotTile *tile
         );
 
+int mandelbrot_tile_queue_try_pop(
+    MandelbrotTileQueue *queue,
+    MandelbrotTile *tile
+);
+
+
 #endif

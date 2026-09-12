@@ -2,6 +2,7 @@
 #ifndef MANDELBROT_H
 #define MANDELBROT_H
 
+#include <stdint.h>
 #include <stddef.h>
 
 /*
@@ -216,6 +217,24 @@ void mandelbrot_compute_row_range_avx2(
 
 int mandelbrot_build_colour_cdf(const MandelbrotConfig *cfg,
                                 MandelbrotImage *img);
+
+void mandelbrot_colour_pixel(
+        const MandelbrotConfig *cfg,
+        const MandelbrotImage *img,
+        size_t index,
+        uint8_t *r,
+        uint8_t *g,
+        uint8_t *b
+        );
+
+void mandelbrot_colour_pixel_preview(
+    const MandelbrotConfig *cfg,
+    const MandelbrotImage *img,
+    size_t index,
+    uint8_t *r,
+    uint8_t *g,
+    uint8_t *b
+);
 
 /* ----------------------------- Output Functions -------------------------- */
 
