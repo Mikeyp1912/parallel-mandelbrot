@@ -4,6 +4,8 @@ mandelbrot
 test_avx2
 test_tiles
 test_progressive
+test_queue
+test_progressive_queue
 
 # Generated Mandelbrot output
 plot/*.dat

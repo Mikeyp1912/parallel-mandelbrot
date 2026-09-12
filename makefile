@@ -7,12 +7,15 @@ TARGET = mandelbrot
 TEST_AVX2 = test_avx2
 TEST_TILES = test_tiles
 TEST_PROGRESSIVE = test_progressive
+TEST_QUEUE = test_queue
+TEST_PROGRESSIVE_QUEUE = test_progressive_queue
 
 SRC = src/main.c \
       src/mandelbrot_core.c \
       src/mandelbrot_colour.c \
       src/mandelbrot_output.c \
-      src/mandelbrot_avx2.c
+      src/mandelbrot_avx2.c \
+      src/mandelbrot_queue.c
 
 OBJ = $(SRC:.c=.o)
 
@@ -26,6 +29,11 @@ $(TARGET): $(OBJ)
 
 src/mandelbrot_avx2.o: src/mandelbrot_avx2.c include/mandelbrot.h
 	$(CC) $(CFLAGS) -mavx2 -c $< -o $@
+
+src/mandelbrot_queue.o: src/mandelbrot_queue.c \
+                        include/mandelbrot_queue.h \
+                        include/mandelbrot.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(TEST_AVX2): tests/test_avx2.c \
               src/mandelbrot_core.o \
@@ -57,6 +65,32 @@ $(TEST_PROGRESSIVE): tests/test_progressive.c \
 	    -o $(TEST_PROGRESSIVE) \
 	    $(LDLIBS)
 
+$(TEST_QUEUE): tests/test_queue.c \
+               src/mandelbrot_queue.o
+	$(CC) $(CFLAGS) \
+	    tests/test_queue.c \
+	    src/mandelbrot_queue.o \
+	    -o $(TEST_QUEUE) \
+	    $(LDLIBS)
+
+$(TEST_PROGRESSIVE_QUEUE): tests/test_progressive_queue.c \
+                           src/mandelbrot_core.o \
+                           src/mandelbrot_avx2.o \
+                           src/mandelbrot_queue.o
+	$(CC) $(CFLAGS) \
+	    tests/test_progressive_queue.c \
+	    src/mandelbrot_core.o \
+	    src/mandelbrot_avx2.o \
+	    src/mandelbrot_queue.o \
+	    -o $(TEST_PROGRESSIVE_QUEUE) \
+	    $(LDLIBS)
+
+test-progressive-queue: $(TEST_PROGRESSIVE_QUEUE)
+	./$(TEST_PROGRESSIVE_QUEUE)
+
+test-queue: $(TEST_QUEUE)
+	./$(TEST_QUEUE)
+
 test-progressive: $(TEST_PROGRESSIVE)
 	./$(TEST_PROGRESSIVE)
 
@@ -73,7 +107,9 @@ clean:
 	      $(TARGET) \
 	      $(TEST_AVX2) \
 	      $(TEST_TILES) \
-	      $(TEST_PROGRESSIVE)
+	      $(TEST_PROGRESSIVE) \
+	      $(TEST_QUEUE) \
+	      $(TEST_PROGRESSIVE_QUEUE)
 
 clean-render:
 	rm -f plot/mandel.png
@@ -81,4 +117,5 @@ clean-render:
 clean-all: clean clean-render
 
 .PHONY: all run clean clean-render clean-all \
-        test-avx2 test-tiles test-progressive
+        test-avx2 test-tiles test-progressive \
+        test-queue test-progressive-queue
