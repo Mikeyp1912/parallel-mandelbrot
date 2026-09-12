@@ -296,24 +296,21 @@ int main(void) {
      */
     double x_span = 3.0 / cfg.zoom;
 
-    double aspect =
-        (double)cfg.height /
-        (double)cfg.width;
+    double aspect = (double)cfg.height / (double)cfg.width;
 
-    double y_span =
-        x_span * aspect;
+    double y_span = x_span * aspect;
 
-    cfg.x_min =
-        cfg.center_x - x_span / 2.0;
+    cfg.x_min = cfg.center_x - x_span / 2.0;
 
-    cfg.x_max =
-        cfg.center_x + x_span / 2.0;
+    cfg.x_max = cfg.center_x + x_span / 2.0;
 
-    cfg.y_min =
-        cfg.center_y - y_span / 2.0;
+    cfg.y_min = cfg.center_y - y_span / 2.0;
 
-    cfg.y_max =
-        cfg.center_y + y_span / 2.0;
+    cfg.y_max = cfg.center_y + y_span / 2.0;
+
+    int dragging = 0;
+    float drag_start_x = 0.0f;
+    float drag_start_y = 0.0f;
 
     if (mandelbrot_image_init(&img, &cfg) != 0) {
         fprintf(stderr,
@@ -612,6 +609,115 @@ int main(void) {
                     cfg.center_y
                 );
             }        
+
+            if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                event.button.button == SDL_BUTTON_LEFT) {
+
+                dragging = 1;
+
+                drag_start_x = event.button.x;
+                drag_start_y = event.button.y;
+            }
+
+            if (event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
+                event.button.button == SDL_BUTTON_LEFT &&
+                dragging) {
+
+                dragging = 0;
+
+                float drag_end_x = event.button.x;
+                float drag_end_y = event.button.y;
+
+                float dx = drag_end_x - drag_start_x;
+
+                float dy = drag_end_y - drag_start_y;
+
+                int window_width;
+                int window_height;
+
+                SDL_GetWindowSize(
+                    window,
+                    &window_width,
+                    &window_height
+                );
+
+                if (window_width > 0 &&
+                    window_height > 0) {
+
+                    double x_span = cfg.x_max - cfg.x_min;
+
+                    double y_span = cfg.y_max - cfg.y_min;
+
+                    /*
+                     * Dragging the image right means viewing
+                     * further left in the complex plane.
+                     */
+                    double shift_x = -(double)dx / (double)window_width * x_span;
+
+                    double shift_y = -(double)dy / (double)window_height * y_span;
+
+                    MandelbrotConfig new_cfg = cfg;
+
+                    new_cfg.x_min += shift_x;
+                    new_cfg.x_max += shift_x;
+
+                    new_cfg.y_min += shift_y;
+                    new_cfg.y_max += shift_y;
+
+                    new_cfg.center_x = (new_cfg.x_min + new_cfg.x_max) * 0.5;
+
+                    new_cfg.center_y = (new_cfg.y_min + new_cfg.y_max) * 0.5;
+
+                    stop_render(
+                        &render_state,
+                        render_thread
+                    );
+
+                    mandelbrot_tile_queue_destroy(&queue);
+
+                    if (mandelbrot_tile_queue_init(
+                            &queue,
+                            128) != 0) {
+
+                        fprintf(stderr, "Failed to restart tile queue\n");
+
+                        running = 0;
+                        continue;
+                    }
+
+                    cfg = new_cfg;
+
+                    reset_render_buffers(
+                        &cfg,
+                        &img,
+                        pixels,
+                        texture
+                    );
+
+                    consumed_tiles = 0;
+                    final_colour_applied = 0;
+
+                    tiles_x = (cfg.width + cfg.tile_size - 1) / cfg.tile_size;
+
+                    tiles_y = (cfg.height + cfg.tile_size - 1) / cfg.tile_size;
+
+                    total_tiles = tiles_x * tiles_y;
+
+                    if (start_render(
+                            &render_state,
+                            &render_thread) != 0) {
+
+                        running = 0;
+                        continue;
+                    }
+
+                    printf(
+                        "Pan: center=(%.15f, %.15f)\n",
+                        cfg.center_x,
+                        cfg.center_y
+                    );
+                }
+            }
         }
 
         MandelbrotTile tile;
